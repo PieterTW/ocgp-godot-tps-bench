@@ -1,0 +1,21 @@
+diff --git a/project.godot b/project.godot
+index a089692..79c128d 100644
+--- a/project.godot
++++ b/project.godot
+@@ -9,6 +9,8 @@
+ config_version=5
+ 
+ [application]
++run/main_scene="res://main/main.tscn"
++run/main_scene.ocgp="res://ocgp_bench/bench.tscn"
+ 
+ config/name="Godot Third-Person Shooter Demo"
+ config/description="Godot Third Person Shooter with high quality assets and lighting"
+@@ -29,6 +31,7 @@ Settings="*res://menu/settings.gd"
+ window/size/viewport_width=1920
+ window/size/viewport_height=1080
+ window/hdr/request_hdr_output=true
++window/hdr/request_hdr_output.ocgp=false
+ window/stretch/mode="canvas_items"
+ window/stretch/aspect="expand"
+ display_server/driver.linuxbsd="wayland"

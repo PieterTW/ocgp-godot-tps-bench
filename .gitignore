@@ -1,0 +1,9 @@
+# build output and working copies
+build/
+tps-bench/
+.godot/
+export_presets.cfg
+
+# Godot binaries and run logs
+Godot_v*
+*.txt

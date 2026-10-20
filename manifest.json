@@ -1,0 +1,59 @@
+{
+  "name": "TPS Benchmark",
+  "description": "Fixed-frame fly-through of the Godot TPS demo level with a player character and scripted robots (CC-BY assets). Difficulty = render resolution. Emits sector/complete timings for OCGP.",
+  "runner": "python",
+  "script": "tps_wrapper.py",
+  "requirements": [],
+  "external_dependency": {
+    "godot_version": "4.7.2-stable",
+    "known_hashes": {},
+    "_note": "Fill known_hashes with sha256 -> label of the approved builds before competitive use. Packaged mode (OCGP-TPS.exe) needs only that one hash. Empty = unverified (prototype)."
+  },
+  "variants": {
+    "Small": {
+      "args": [
+        "--frames",
+        "10000",
+        "--sectors",
+        "10",
+        "--res",
+        "720p"
+      ],
+      "label": "Small",
+      "description": "720p, 10 000 measured frames, 10 sectors of 1 000 frames",
+      "total_frames": 10000,
+      "sectors": 10,
+      "resolution": "720p"
+    },
+    "Medium": {
+      "args": [
+        "--frames",
+        "10000",
+        "--sectors",
+        "10",
+        "--res",
+        "1080p"
+      ],
+      "label": "Medium",
+      "description": "1080p, 10 000 measured frames, 10 sectors of 1 000 frames",
+      "total_frames": 10000,
+      "sectors": 10,
+      "resolution": "1080p"
+    },
+    "Large": {
+      "args": [
+        "--frames",
+        "5000",
+        "--sectors",
+        "10",
+        "--res",
+        "4k"
+      ],
+      "label": "Large",
+      "description": "4K, 5 000 measured frames, 10 sectors of 500 frames",
+      "total_frames": 5000,
+      "sectors": 10,
+      "resolution": "4k"
+    }
+  }
+}
