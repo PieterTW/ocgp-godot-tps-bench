@@ -22,7 +22,7 @@ Last updated 2026-10-20. Tick items off (or delete them) as they are settled.
 
 - [ ] **Finalize `route.ocgp` and `activity.ocgp`** (not final yet). Re-recording the route means re-baking the
   robots (`activity.ocgp` stores the route's hash), then rebuilding and republishing the hashes. See README.
-- [ ] **Tune the variants.** Frame counts (Small/Medium 10 000, Large 5 000) are guesses. They live in two places that
+- [ ] **Tune the variants.** Frame counts (25 000 for all three) are guesses. They live in two places that
   must agree: `manifest.json` and `VARIANTS` in `ocgp_bench/bench.gd`. Needs full runs on several GPUs.
 - [ ] **Measure run-to-run variance.** One RTX 4090 gave 27 064 ms and 26 746 ms on two Small runs (about 1.2 %).
   Collect more from the testers.
@@ -60,6 +60,8 @@ Last updated 2026-10-20. Tick items off (or delete them) as they are settled.
 
 ## Done
 
+- HUD panel styling, bottom credit overlay, and per-sector title cards added to
+  `ocgp_bench/bench.gd` — see `CHANGES_HUD.md`. Needs a re-export before any built exe reflects it.
 - Repo created from the OCGP overlay with a scripted build (`scripts/build.sh`), verified from an empty folder.
 - Windows-only export; music removed from the exe.
 - `--variant` / `--output` options, tester package and launcher (`tester/`), `OUTPUT.md`.

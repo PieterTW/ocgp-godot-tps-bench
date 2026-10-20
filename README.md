@@ -77,16 +77,16 @@ packaged exe `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
 
 | Variant | Resolution | Frames | Sectors |
 |---|---|---|---|
-| Small | 1280x720 | 10 000 | 10 x 1 000 |
-| Medium | 1920x1080 | 10 000 | 10 x 1 000 |
-| Large | 3840x2160 | 5 000 | 10 x 500 |
+| Small | 1280x720 | 25 000 | 10 x 2 500 |
+| Medium | 1920x1080 | 25 000 | 10 x 2 500 |
+| Large | 3840x2160 | 25 000 | 10 x 2 500 |
 
 `--res` only accepts those three values (anything else aborts with `invalid_args`) and is **not** a debug option;
 `--debug-size WxH` still exists for diagnostics and marks the run non-submittable. The 3D scene always renders at
 the full internal resolution (viewport stretch mode), but the on-screen window is capped at 1920x1080, so a 4K run
 fits a 1080p monitor and is simply displayed downscaled. The `start` event reports `resolution`, `render_size`
-and `window_size`; the server should check `render_size` against the variant. Frame counts are guesses: Large is
-set lower because 4K frames cost far more; tune them once 720p / 4K timings are known across GPUs.
+and `window_size`; the server should check `render_size` against the variant. Frame counts are guesses; tune them
+once 720p / 4K timings are known across GPUs.
 
 ## "Fixed frames, variable frame rate" — how that works here
 
@@ -178,7 +178,7 @@ Top-left, updated every 15 frames (so the overlay's own cost is negligible):
 
 ```
 TPS  1080p  vulkan  NVIDIA GeForce RTX 4090
-frame 4321 / 10000   sector 5/10
+frame 4321 / 25000   sector 2/10
 2.80 ms  357 fps   worst 4.92 ms
 avg 2.78 ms   elapsed 12.0 s
 lows  1% 230   0.1% 180   0.01% 150   min 148 fps
@@ -192,9 +192,9 @@ measured workload for every competitor (as in `3dpoc.py`); `--no-hud` removes it
 
 `1% low`, `0.1% low` and `0.01% low` are the **average frame rate of the slowest X% of frames**
 (k = max(1, ceil(X% x frames)) frames); `min` is the single slowest frame. Frame time is the interval between
-consecutive frame callbacks, so it covers CPU and GPU throughput together. With 10 000 frames, 0.1% = the worst 10
-frames and 0.01% = the worst 1, i.e. equal to `min` (for runs under 10 000 frames too, because k never drops below
-1) - so below 10 000 frames the 0.01% figure is just the worst frame. Only the slowest 1% of frames are kept in a
+consecutive frame callbacks, so it covers CPU and GPU throughput together. With 25 000 frames, 0.1% = the worst 25
+frames and 0.01% = the worst 3 (k never drops below 1, so on short runs the 0.01% figure can bottom out at just the
+worst frame, equal to `min`). Only the slowest 1% of frames are kept in a
 small sorted array (`frame_stats.gd`, unit-tested against a brute-force sort), so tracking costs one comparison
 per frame. The overlay's own text update happens every 15 frames and is included in the frame times; use
 `--no-hud` for the cleanest lows. The final `complete` event carries the same numbers:
@@ -244,9 +244,9 @@ exe instead. The route and robots are baked in at export time, so re-export afte
 ## Events
 
 ```
-{"event":"start","workload":"tps","variant":"Medium","total_sectors":10,"frames":10000,"gi":"voxel",...,"adapter":"<GPU>","godot":"4.7.2-stable (official)"}
+{"event":"start","workload":"tps","variant":"Medium","total_sectors":10,"frames":25000,"gi":"voxel",...,"adapter":"<GPU>","godot":"4.7.2-stable (official)"}
 {"event":"sector","iter":1,"sector":1,"total_sectors":10,"sector_ms":123.45}
-{"event":"complete","best_ms":<sum of sector_ms>,"sector_times":[...],"total_sectors":10,"frames":10000,"frame_stats":{...}}
+{"event":"complete","best_ms":<sum of sector_ms>,"sector_times":[...],"total_sectors":10,"frames":25000,"frame_stats":{...}}
 ```
 Errors: `{"event":"complete","error":"<code>","message":"..."}`. Every field, the integrity checks and the full list of
 error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines are also written to the file.
@@ -281,7 +281,7 @@ cross-vendor behaviour.
 * The demo's `project.godot` selects Wayland on Linux and requests HDR output; the benchmark overrides HDR at
   runtime. This repo only targets Windows for now.
 * `known_hashes` in the committed `manifest.json` is empty (unverified); release builds ship a stamped copy.
-* Frame counts of the variants (Small/Medium 10 000, Large 5 000) are guesses; tune once real GPU speeds are known.
+* Frame counts of the variants (25 000 for all three) are guesses; tune once real GPU speeds are known.
   They live in two places that must agree: `manifest.json` and `VARIANTS` in `ocgp_bench/bench.gd`.
 * The exe is not byte-reproducible (two builds of the same sources differ), so always use the hash of the released file.
 * Sector timing uses CPU timestamps; GPU work is queued a few frames deep, so each boundary can blur by ~2-3

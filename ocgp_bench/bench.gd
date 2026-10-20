@@ -32,9 +32,9 @@ const RESOLUTIONS := {"720p": Vector2i(1280, 720), "1080p": Vector2i(1920, 1080)
 # Named difficulty presets (keep in sync with "variants" in manifest.json). --variant selects one and cannot be
 # combined with --frames / --sectors / --res, so a submittable run is always exactly one of these.
 const VARIANTS := {
-	"small": {"res": "720p", "frames": 10000, "sectors": 10},
-	"medium": {"res": "1080p", "frames": 10000, "sectors": 10},
-	"large": {"res": "4k", "frames": 5000, "sectors": 10},
+	"small": {"res": "720p", "frames": 25000, "sectors": 10},
+	"medium": {"res": "1080p", "frames": 25000, "sectors": 10},
+	"large": {"res": "4k", "frames": 25000, "sectors": 10},
 }
 const WINDOW_CAP := Vector2i(1920, 1080)            # on-screen window never exceeds this (a 4K run is shown downscaled)
 const SIM_STEP := 1.0 / 60.0          # must match --fixed-fps 60
@@ -92,6 +92,24 @@ const VANTAGES := [
 	{"name": "center_hall_up", "pos": Vector3(-4.05, -1.13, 4.0),                  "yaw": 310.0, "sweep": 360.0, "pitch": 8.0},
 ]
 
+# In-universe sector titles, shown as a brief overlay card at the start of each sector.
+# Index wraps the same way VANTAGES does. Purely cosmetic — no effect on timing or scoring.
+const SECTOR_TITLES := [
+	"Sector 1 : Entrance Hall",
+	"Sector 2 : Eastern Ramp",
+	"Sector 3 : Mid Corridor",
+	"Sector 4 : Lower West Wing",
+	"Sector 5 : Lower Core",
+	"Sector 6 : Central Hall",
+	"Sector 7 : Corridor Overlook",
+	"Sector 8 : West Wing, Below",
+	"Sector 9 : Entrance, Above",
+	"Sector 10 : Central Hall, Above",
+]
+const SECTOR_TITLE_FRAMES := 90   # how long the title card stays fully visible (~1.5 s at 60 fps)
+const SECTOR_TITLE_FADE_FRAMES := 30
+const CREDIT_TEXT := "OCGP TPS Benchmark — © 2026 Pieter Plaisier — for benchmark use only, not for redistribution"
+
 # ---- CLI (after the `--` separator) ----
 var frames := 2000
 var sectors := 10
@@ -132,6 +150,7 @@ var level: Node3D
 var cam: Camera3D
 var anim: AnimationPlayer
 var hud_label: Label
+var hud_panel: Panel
 var hud_header := ""
 var frame_prev_us := 0
 var frame_stats: RefCounted
@@ -139,6 +158,11 @@ var hud_win_start_us := 0
 var hud_win_frames := 0
 var hud_worst_us := 0
 var run_start_us := 0
+var credit_label: Label
+var title_label: Label
+var title_panel: Panel
+var title_shown_sector := -1
+var title_frame := 0
 
 var total_frames := 0
 var measured := 0
@@ -411,27 +435,49 @@ func _load_level() -> void:
 	_warmup_pose(0)
 
 
+func _mono_font() -> SystemFont:
+	var mono := SystemFont.new()
+	mono.font_names = PackedStringArray(["Consolas", "DejaVu Sans Mono", "Menlo", "monospace"])
+	return mono
+
+
 func _setup_hud() -> void:
 	if not hud_enabled:
 		return
 	var layer := CanvasLayer.new()
-	hud_label = Label.new()
 	var fs := maxi(14, int(render_size.y / 45.0))   # scales with the internal resolution (4K is shown downscaled)
-	hud_label.position = Vector2(fs, fs * 0.6)
+	var mono := _mono_font()
+
+	# Backing panel gives the readout a fixed, legible home instead of floating text over the scene.
+	hud_panel = Panel.new()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.03, 0.05, 0.05, 0.55)
+	panel_style.set_corner_radius_all(maxi(4, int(fs / 3.0)))
+	panel_style.set_border_width_all(1)
+	panel_style.border_color = Color(0.0, 1.0, 0.6, 0.35)
+	hud_panel.add_theme_stylebox_override("panel", panel_style)
+	hud_panel.position = Vector2(fs * 0.6, fs * 0.5)
+	hud_panel.size = Vector2(fs * 23.0, fs * 6.3)
+	layer.add_child(hud_panel)
+
+	hud_label = Label.new()
+	hud_label.position = Vector2(fs * 0.55, fs * 0.35)
 	hud_label.add_theme_font_size_override("font_size", fs)
-	hud_label.add_theme_color_override("font_color", Color("#00ff99"))
-	hud_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	hud_label.add_theme_constant_override("outline_size", maxi(3, int(fs / 5.0)))
-	var mono := SystemFont.new()
-	mono.font_names = PackedStringArray(["Consolas", "DejaVu Sans Mono", "Menlo", "monospace"])
+	hud_label.add_theme_color_override("font_color", Color("#1fffa3"))
+	hud_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	hud_label.add_theme_constant_override("outline_size", maxi(2, int(fs / 6.0)))
+	hud_label.add_theme_constant_override("line_spacing", int(fs * 0.25))
 	hud_label.add_theme_font_override("font", mono)
-	hud_header = "TPS  %s  %s  %s" % [
+	hud_header = "OCGP TPS BENCHMARK   %s   %s   %s" % [
 		"custom" if custom_size else res_name,
 		RenderingServer.get_current_rendering_driver_name(),
 		RenderingServer.get_video_adapter_name()]
 	hud_label.text = hud_header + "\nwarming up..."
-	layer.add_child(hud_label)
+	hud_panel.add_child(hud_label)
 	add_child(layer)
+
+	_setup_credit(layer, fs, mono)
+	_setup_title_card(layer, fs, mono)
 
 
 # Live readout. Window stats cover the frames since the last update; "worst" is the longest single frame in it.
@@ -447,6 +493,67 @@ func _update_hud(now_us: int) -> void:
 	hud_win_start_us = now_us
 	hud_win_frames = 0
 	hud_worst_us = 0
+
+
+# ---------------------------------------------------------------- credit / sector title overlays
+
+func _setup_credit(layer: CanvasLayer, fs: int, mono: SystemFont) -> void:
+	var cfs := maxi(10, int(fs * 0.55))
+	credit_label = Label.new()
+	credit_label.text = CREDIT_TEXT
+	credit_label.add_theme_font_size_override("font_size", cfs)
+	credit_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	credit_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	credit_label.add_theme_constant_override("outline_size", maxi(2, int(cfs / 6.0)))
+	credit_label.add_theme_font_override("font", mono)
+	credit_label.size = Vector2(render_size.x, cfs * 2.0)
+	credit_label.position = Vector2(0, render_size.y - cfs * 2.0)
+	credit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credit_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	layer.add_child(credit_label)
+
+
+func _setup_title_card(layer: CanvasLayer, fs: int, mono: SystemFont) -> void:
+	var tfs := maxi(16, int(render_size.y / 30.0))
+	title_panel = Panel.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.0)
+	title_panel.add_theme_stylebox_override("panel", style)
+	title_panel.size = Vector2(render_size.x, tfs * 2.4)
+	title_panel.position = Vector2(0, render_size.y * 0.5 - tfs * 1.2)
+	title_panel.modulate = Color(1, 1, 1, 0)
+	layer.add_child(title_panel)
+
+	title_label = Label.new()
+	title_label.text = ""
+	title_label.add_theme_font_size_override("font_size", tfs)
+	title_label.add_theme_color_override("font_color", Color("#eafff5"))
+	title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	title_label.add_theme_constant_override("outline_size", maxi(3, int(tfs / 5.0)))
+	title_label.add_theme_font_override("font", mono)
+	title_label.size = title_panel.size
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_panel.add_child(title_label)
+
+
+# Call once per measured frame: shows "Sector N : <name>" briefly whenever the sector changes,
+# fading it out over SECTOR_TITLE_FADE_FRAMES. Purely visual bookkeeping, not part of scoring.
+func _update_title_card() -> void:
+	if title_label == null:
+		return
+	if current_sector != title_shown_sector:
+		title_shown_sector = current_sector
+		title_frame = 0
+		var idx := current_sector % SECTOR_TITLES.size()
+		title_label.text = SECTOR_TITLES[idx]
+	if title_frame > SECTOR_TITLE_FRAMES + SECTOR_TITLE_FADE_FRAMES:
+		return
+	var alpha := 1.0
+	if title_frame > SECTOR_TITLE_FRAMES:
+		alpha = 1.0 - float(title_frame - SECTOR_TITLE_FRAMES) / float(SECTOR_TITLE_FADE_FRAMES)
+	title_panel.modulate = Color(1, 1, 1, clampf(alpha, 0.0, 1.0))
+	title_frame += 1
 
 
 # ---------------------------------------------------------------- frame loop
@@ -502,6 +609,7 @@ func _process(delta: float) -> void:
 		hud_win_frames += 1
 		if measured == 1 or measured % HUD_INTERVAL == 0:
 			_update_hud(frame_now)
+		_update_title_card()
 
 	# ---- Sector boundary (same convention as 3dpoc.py) ----
 	if measured % frames_per_sector == 0:

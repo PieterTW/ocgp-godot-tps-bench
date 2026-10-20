@@ -28,7 +28,7 @@ Emitted once, when the timed part begins (after warmup).
 |---|---|---|
 | `workload` | `"tps"` | identify |
 | `variant` | `"Medium"` (`""` if frames/res were given by hand) | **verify** it matches the variant the server requested |
-| `frames`, `total_sectors` | `10000`, `10` | **verify** against the variant table in `manifest.json` |
+| `frames`, `total_sectors` | `25000`, `10` | **verify** against the variant table in `manifest.json` |
 | `resolution`, `render_size` | `"1080p"`, `[1920,1080]` | **verify** `render_size` matches the variant (the window can be smaller) |
 | `warmup` | `300` | informational |
 | `gi`, `gi_quality` | `"voxel"`, `"high"` | **verify** defaults (`voxel`/`high`); other profiles are not comparable |

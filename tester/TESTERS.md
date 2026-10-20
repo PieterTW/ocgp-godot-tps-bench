@@ -16,9 +16,9 @@ A GPU benchmark: it flies a fixed route through a game level and measures how lo
 
 | Variant | Render resolution | Frames |
 |---|---|---|
-| Small | 1280x720 | 10 000 |
-| Medium (default) | 1920x1080 | 10 000 |
-| Large | 3840x2160 | 5 000 |
+| Small | 1280x720 | 25 000 |
+| Medium (default) | 1920x1080 | 25 000 |
+| Large | 3840x2160 | 25 000 |
 
 A window opens, shows a live overlay (frame time, fps, 1% / 0.1% lows) and closes when finished. Don't touch the
 window or run other heavy programs while it runs. The Large variant renders at 4K internally even on a 1080p monitor.
