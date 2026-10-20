@@ -1,3 +1,4 @@
 * text=auto eol=lf
 # data files are hashed at runtime: never touch their bytes
 *.ocgp -text
+*.bat text eol=crlf

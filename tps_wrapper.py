@@ -85,6 +85,8 @@ def main() -> int:
     ap.add_argument("--gi", choices=["voxel", "sdfgi", "lightmap"], default="voxel")
     ap.add_argument("--gi-quality", choices=["low", "high"], default="high")
     ap.add_argument("--only-sector", type=int, default=None, help="Debug; result not submittable.")
+    ap.add_argument("--variant", choices=["Small", "Medium", "Large"], default=None,
+                    help="Named preset (sets resolution, frames and sectors); replaces --frames/--sectors/--res.")
     ap.add_argument("--exe", default=None, help="Packaged single-file build (preferred).")
     ap.add_argument("--godot-path", default=None)
     ap.add_argument("--project-path", default=None)
@@ -92,6 +94,9 @@ def main() -> int:
 
     bench_args = ["--frames", str(args.frames), "--sectors", str(args.sectors), "--warmup", str(args.warmup),
                   "--gi", args.gi, "--gi-quality", args.gi_quality, "--res", args.res]
+    if args.variant:
+        bench_args = ["--variant", args.variant, "--warmup", str(args.warmup),
+                      "--gi", args.gi, "--gi-quality", args.gi_quality]
     if args.only_sector is not None:
         bench_args += ["--only-sector", str(args.only_sector)]
 

@@ -3,32 +3,65 @@
 A fixed-frame, uncapped-frame-rate benchmark built on the Godot **Third Person Shooter demo level**
 ([godotengine/tps-demo](https://github.com/godotengine/tps-demo)). A faster GPU renders the same N frames in
 less wall-clock time; the score is the **sum of sector times in ms, lower is better** — same protocol as `3dpoc.py`.
+Windows only for now.
 
-This package contains only the OCGP overlay (scripts, scene, wrapper, manifest). The demo's assets are **not**
-bundled — `setup.sh` fetches the demo at a pinned commit.
+This repo contains only the OCGP overlay (scripts, scene, recorded route, wrapper, manifest) and the build
+pipeline. The demo's assets are **not** stored here — `scripts/setup.sh` fetches the demo at a pinned commit.
 
-## Setup
+| Path | What it is |
+|---|---|
+| `ocgp_bench/` | the benchmark: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools |
+| `patches/` | the two small changes made to the demo itself (`project.godot`, `level.tscn`) |
+| `scripts/` | `setup.sh` (fetch + overlay), `build.sh` (setup, import, export, hash), `stamp_manifest.py`, `package_testers.py` |
+| `tps_wrapper.py`, `manifest.json` | the OCGP workload wrapper and manifest |
+| `tester/` | launcher + instructions for the tester package |
+| `.github/workflows/build.yml` | builds the exe on a `v*` tag and publishes a release |
+| `OUTPUT.md` | what a run reports (events, fields, error codes) — for deciding what OCGP captures |
+| `NOTICE.md` | third-party licences / attribution |
+
+## Getting the benchmark
+
+**Release build (normal use):** a tag push (`v*`) builds `OCGP-TPS.exe` in GitHub Actions and attaches to the release:
+`OCGP-TPS.exe`, `OCGP-TPS.exe.sha256`, a `manifest.json` stamped with the exe's hash in `known_hashes`,
+`OCGP-TPS-tester.zip` and `NOTICE.md`. The committed `manifest.json` keeps `known_hashes` empty on purpose; the
+exe is not byte-reproducible, so the hash of the released file is the one that counts.
+
+**Build it yourself** (needs Godot 4.7.2 and its export templates installed):
 
 ```bash
-./setup.sh tps-bench                                    # fetch tps-demo @ pinned commit + overlay ocgp_bench/
+GODOT=/path/to/Godot_v4.7.2-stable_win64_console.exe scripts/build.sh    # -> build/OCGP-TPS.exe + .sha256
+python scripts/package_testers.py build/OCGP-TPS.exe build/OCGP-TPS-tester.zip   # optional tester package
+```
+
+`build.sh` runs `setup.sh` into `./tps-bench` (a fresh checkout of the demo at the pinned commit with the overlay
+and patches applied), imports the assets (slow, minutes), generates `export_presets.cfg` with
+`ocgp_bench/export_list.gd --no-lightmap` and exports the Windows preset.
+
+**Development setup** (to run from the editor / record / bake):
+
+```bash
+scripts/setup.sh tps-bench                              # fetch tps-demo @ pinned commit + overlay + patches
 godot --headless --path tps-bench --import              # one-time asset import (slow; see Known issues)
 ```
 
-Needs **Godot 4.7.x** (the demo's `project.godot` targets 4.7). Tested here with 4.7.2-stable.
+Needs **Godot 4.7.x** (the demo's `project.godot` targets 4.7). Tested with 4.7.2-stable.
 
 ## Run
 
-Direct (what the wrapper does for you):
+Direct (what the wrapper does for you), from the development setup:
 
 ```bash
 godot --path tps-bench --rendering-driver vulkan --disable-vsync --fixed-fps 60 --flush-stdout \
-      res://ocgp_bench/bench.tscn -- --frames 3000 --sectors 10 --warmup 300
+      res://ocgp_bench/bench.tscn -- --variant Medium --output result.txt
 ```
 
-Via the wrapper: `python tps_wrapper.py --godot-path <godot> --project-path tps-bench --frames 3000`
+Via the wrapper: `python tps_wrapper.py --godot-path <godot> --project-path tps-bench --variant Medium`, or with the
+packaged exe `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
 
 | Option (after `--`) | Meaning |
 |---|---|
+| `--variant Small\|Medium\|Large` | named preset: sets resolution, frames and sectors (table below). Cannot be combined with `--frames` / `--sectors` / `--res` (`invalid_args`). Also accepted before the `--` separator |
+| `--output FILE` | also write every event (one JSON line each) to FILE; relative paths resolve against the exe's folder. Needed for the packaged exe, which has no console |
 | `--frames N` | measured frames (must divide by `--sectors`) — default 2000 |
 | `--sectors S` | timed sectors, default 10 |
 | `--warmup W` | untimed frames, touring every vantage first — default 300 |
@@ -174,76 +207,82 @@ is a one-line change in `frame_stats.gd` if you prefer it.
 
 ## Single-file build (what competitors download)
 
-An exported build is **one executable** with the engine, the level, the route and the robots inside. It leaves out
-everything else in the 1.4 GB working folder (`.git`, `.blend` sources, raw PNGs, import cache, the record/bake/export
-tools). Build machine only: Godot 4.7.2 plus the matching **export templates** (Editor > Manage Export Templates;
-the full download is 1.2 GB, only the Windows/Linux release templates are used).
+An exported build is **one executable** (~580 MB) with the engine, the level, the route and the robots inside. It
+leaves out everything else in the 1.4 GB working folder (`.git`, `.blend` sources, raw PNGs, import cache, the
+record/bake/export tools). It is produced by `scripts/build.sh` (see above); the steps it automates are:
 
 ```bash
-# 1. record + bake first (route.ocgp, activity.ocgp). setup.sh already added the main-scene override to project.godot;
-#    by hand it is one line under [application]:  run/main_scene.ocgp="res://ocgp_bench/bench.tscn"
-# 2. list every file the benchmark needs and write export_presets.cfg
-godot --headless --path tps-bench --script res://ocgp_bench/export_list.gd              # full
-godot --headless --path tps-bench --script res://ocgp_bench/export_list.gd -- --no-lightmap   # lean (see below)
-# 3. export
+scripts/setup.sh tps-bench
+godot --headless --path tps-bench --import
+godot --headless --path tps-bench --script res://ocgp_bench/export_list.gd -- --no-lightmap
 godot --headless --path tps-bench --export-release "Windows Desktop" build/OCGP-TPS.exe
 ```
-Run it: `OCGP-TPS.exe --rendering-driver vulkan --disable-vsync --fixed-fps 60 --flush-stdout -- --frames 10000 --res 1080p`
-(no scene argument; the exe starts the benchmark itself) or through the wrapper: `python tps_wrapper.py --exe OCGP-TPS.exe`.
-Only one file needs hashing for the allowlist.
 
-**Measured here** (Godot 4.7.2, Linux export; the Windows export was built the same way):
+Run it: `OCGP-TPS.exe --rendering-driver vulkan --disable-vsync --fixed-fps 60 --flush-stdout -- --variant Medium --output result.txt`
+(no scene argument; the exe starts the benchmark itself) or through the wrapper:
+`python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`. Testers get `OCGP-TPS-tester.zip`, whose
+`run_benchmark.bat` passes the required engine flags. Only the one exe needs hashing for the allowlist.
 
-| Build | Windows exe | Linux binary |
-|---|---|---|
-| Full (voxel, SDFGI and lightmap GI) | 633 MB | 599 MB |
-| Lean (`--no-lightmap`) | ~535 MB (predicted) | 501 MB |
+**Lean build.** The default build leaves out the lightmap GI data (~98 MB: `level.lmbake` and its EXR atlas), which
+only `--gi lightmap` uses; that mode is refused with `gi_unavailable`. Drop `--no-lightmap` in `build.sh` for the full
+build (~50 MB larger). The pack is dominated by textures (350 MB), baked VoxelGI data (39 MB) and meshes (29 MB); the
+engine adds ~104 MB. Capping the four 4K textures at 2K would save ~64 MB but changes the visuals; not done.
 
-The pack is 529 MB: textures 350 MB, the lightmap atlas ~98 MB (used only by `--gi lightmap`), baked VoxelGI data 39 MB,
-meshes 29 MB, the rest small. The engine adds 104 MB (Windows) / 70 MB (Linux). The lean build refuses `--gi lightmap`
-with `gi_unavailable`. Capping the four 4K textures at 2K would save ~64 MB but changes the visuals; not done.
+**No music.** The benchmark has no audio (the level's `Music` node is removed at load and the audio bus is muted), so
+`patches/level.tscn.patch` removes the stream reference and `level_music.ogg` is not shipped. `build.sh` fails if it
+ever appears in the exe.
 
-Why the generator exists: the exporter does not follow a script's `preload()` of another script or scene, the external
-materials of an imported `.glb`, or project-setting resources (audio bus layout), so a naive export crashes at runtime
-with missing files. `export_list.gd` walks the dependencies and reads the scripts for `res://` paths, and lists all of it.
+Why `export_list.gd` exists: the exporter does not follow a script's `preload()` of another script or scene, the
+external materials of an imported `.glb`, or project-setting resources (audio bus layout), so a naive export crashes at
+runtime with missing files. It walks the dependencies and reads the scripts for `res://` paths, and lists all of it.
 
-Caveats: the exe is a GUI-subsystem build (no console wrapper), so use the wrapper or redirect stdout (`> run.txt`);
-if a Windows console shows nothing and the redirect captures nothing, set `debug/export_console_wrapper=2` in the
-preset for a second `.console.exe` (untested). No PCK encryption (that needs a custom engine build): hash the exe
-instead. The route and robots are baked in at export time, so re-export after re-recording or re-baking.
+Caveats: the exe is a GUI-subsystem build (no console), so use `--output FILE`, the wrapper, or redirect stdout
+(`> run.txt`). A relative `--output` path is resolved against the **exe's folder**, not the current folder. No PCK
+encryption (that needs a custom engine build, and CC-BY forbids technical restrictions on recipients anyway): hash the
+exe instead. The route and robots are baked in at export time, so re-export after re-recording or re-baking.
 
 ## Events
 
 ```
-{"event":"start","workload":"tps","total_sectors":10,"frames":3000,"gi":"voxel",...,"adapter":"<GPU>","godot":"4.7.2-stable (official)"}
+{"event":"start","workload":"tps","variant":"Medium","total_sectors":10,"frames":10000,"gi":"voxel",...,"adapter":"<GPU>","godot":"4.7.2-stable (official)"}
 {"event":"sector","iter":1,"sector":1,"total_sectors":10,"sector_ms":123.45}
-{"event":"complete","best_ms":<sum of rounded sector_ms>,"sector_times":[...],"total_sectors":10,"frames":3000}
+{"event":"complete","best_ms":<sum of sector_ms>,"sector_times":[...],"total_sectors":10,"frames":10000,"frame_stats":{...}}
 ```
-Errors: `{"event":"complete","error":"<code>","message":"..."}` (`fixed_timestep_required`, `canvas_size_invalid`, `invalid_args`).
+Errors: `{"event":"complete","error":"<code>","message":"..."}`. Every field, the integrity checks and the full list of
+error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines are also written to the file.
 
 ## Licensing — read before shipping to competitors
 
-* Demo **assets: CC-BY 3.0** (© 2018 Juan Linietsky, Fernando Miguel Calabró); **music: CC-BY 3.0**
-  (© 2018 Christian Fernando Perucchi). Attribution is required wherever the assets are redistributed.
-* The demo's LICENSE also notes many Substance Painter materials were provided by **GameTextures.com**.
-  Whether those textures may be redistributed inside a third-party benchmark download is **unverified** — get a
-  legal/upstream answer first.
-* Demo **code: MIT**. `level_static.gd` is derived from `level.gd` and keeps that notice.
+* Demo **assets: CC-BY 3.0** (© 2018 Juan Linietsky, Fernando Miguel Calabró). Attribution is required wherever they
+  are redistributed, the adaptation must be flagged as modified, and recipients' rights may not be restricted
+  (so: no encrypted pack). `NOTICE.md` carries all of this and is attached to every release.
+* The demo's **music** (CC-BY 3.0, © 2018 Christian Fernando Perucchi) is not included in the exe.
+* The demo's LICENSE also notes many Substance Painter materials were provided by **GameTextures.com**; the demo's
+  authors distribute the finished assets under CC-BY 3.0. Upstream clearance of the underlying materials is not
+  independently verified.
+* Demo **code: MIT** (© 2018-2021 Juan Linietsky, Godot Engine contributors). `level_static.gd` is derived from
+  `level.gd` and keeps that notice. The exe embeds the Godot Engine (MIT).
+* The licence of the OCGP overlay code itself is not decided yet.
 
 ## Status / known issues
 
-Verified (Godot 4.7.2, Linux sandbox): level loads with the overlay; fixed-timestep guard; 100-frame / 10-sector
-event stream (headless); real frames rendered through a software Vulkan driver (llvmpipe) from the camera path.
+Verified (Godot 4.7.2, Windows, RTX 4090): clean build from an empty folder via `scripts/build.sh`; the exported exe
+runs all 10 sectors and emits the event stream; `--variant` / `--output` including error cases; the Small variant
+completes in about 30 s there. Earlier: fixed-timestep guard, headless event stream, software-Vulkan (llvmpipe) frames.
 
-**Not verified:** any real-GPU timing, run-to-run variance, whether the scene is GPU- rather than CPU-bound at
-1080p, shader-compile/pipeline-cache effects on the first timed sector, and cross-vendor behaviour.
+**Not verified:** the GitHub Actions workflow (first run pending), timings on other GPUs, run-to-run variance, whether
+the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed sector, and
+cross-vendor behaviour.
 
 * **Headless import crashed** (segfault in a worker thread on `level/geometry/models/*.glb`) in a 1-core / 4 GB
   sandbox. Workaround used for testing only: disable LOD / shadow-mesh / lightmap-unwrap generation in those four
-  `.glb.import` files. On a normal machine the stock import settings should be used — report back if it crashes.
+  `.glb.import` files. On a normal machine the stock import settings should be used — report back if it crashes
+  (CI will show this).
 * The demo's `project.godot` selects Wayland on Linux and requests HDR output; the benchmark overrides HDR at
-  runtime, but on Linux pass `--display-driver x11` if Wayland is unavailable.
-* `known_hashes` in `manifest.json` is empty (unverified). Fill with approved Godot binary + overlay-file hashes.
-* Frame counts in the manifest variants (3k / 10k / 30k) are guesses; tune once real GPU speeds are known.
+  runtime. This repo only targets Windows for now.
+* `known_hashes` in the committed `manifest.json` is empty (unverified); release builds ship a stamped copy.
+* Frame counts of the variants (Small/Medium 10 000, Large 5 000) are guesses; tune once real GPU speeds are known.
+  They live in two places that must agree: `manifest.json` and `VARIANTS` in `ocgp_bench/bench.gd`.
+* The exe is not byte-reproducible (two builds of the same sources differ), so always use the hash of the released file.
 * Sector timing uses CPU timestamps; GPU work is queued a few frames deep, so each boundary can blur by ~2-3
   frames. The sum is unaffected except for the tail of the last sector (negligible at these sizes).

@@ -17,5 +17,9 @@ cp -r "$HERE/ocgp_bench" "$DEST/"
 # and HDR off in those builds. Normal editor runs ignore the .ocgp overrides.
 git -C "$DEST" apply --ignore-whitespace "$HERE/patches/project.godot.patch"
 
+# The benchmark has no audio (the level's Music node is removed at load and the audio bus is muted): drop the music
+# stream reference so level_music.ogg (CC-BY, (c) Christian Fernando Perucchi) is not shipped inside the exe.
+git -C "$DEST" apply --ignore-whitespace "$HERE/patches/level.tscn.patch"
+
 echo "Done. Import once (slow, ~minutes):  godot --headless --path $DEST --import"
 echo "Then run:  godot --path $DEST --disable-vsync --fixed-fps 60 --flush-stdout res://ocgp_bench/bench.tscn -- --frames 3000"

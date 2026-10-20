@@ -20,5 +20,7 @@ mkdir -p "$WORK/build"
 "$GODOT" --headless --path "$WORK" --export-release "Windows Desktop" build/OCGP-TPS.exe
 
 mkdir -p "$OUT"
+# the music is not part of the benchmark; fail loudly if it ever sneaks back into the pack
+if grep -qa "level_music" "$WORK/build/OCGP-TPS.exe"; then echo "ERROR: level_music.ogg is inside the exe" >&2; exit 1; fi
 cp "$WORK/build/OCGP-TPS.exe" "$OUT/"
 (cd "$OUT" && sha256sum OCGP-TPS.exe > OCGP-TPS.exe.sha256 && cat OCGP-TPS.exe.sha256)

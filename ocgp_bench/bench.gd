@@ -12,6 +12,9 @@
 #   godot --path <tps-project> --disable-vsync --fixed-fps 60 --flush-stdout \
 #         res://ocgp_bench/bench.tscn -- --frames 2000 --sectors 10 --warmup 300
 #
+# or by named preset, optionally also writing the events to a file:
+#         ... -- --variant Medium --output result.txt
+#
 # DETERMINISM: the world state at frame k is a pure function of k.
 #   * --fixed-fps 60 gives every frame the same 1/60 s delta (also drives the
 #     TIME-based shaders and the CPU particles); verified at runtime.
@@ -26,6 +29,13 @@ const STATIC_LEVEL_SCRIPT := preload("res://ocgp_bench/level_static.gd")
 
 const RENDER_SIZE := Vector2i(1920, 1080)          # default (--res 1080p)
 const RESOLUTIONS := {"720p": Vector2i(1280, 720), "1080p": Vector2i(1920, 1080), "4k": Vector2i(3840, 2160)}
+# Named difficulty presets (keep in sync with "variants" in manifest.json). --variant selects one and cannot be
+# combined with --frames / --sectors / --res, so a submittable run is always exactly one of these.
+const VARIANTS := {
+	"small": {"res": "720p", "frames": 10000, "sectors": 10},
+	"medium": {"res": "1080p", "frames": 10000, "sectors": 10},
+	"large": {"res": "4k", "frames": 5000, "sectors": 10},
+}
 const WINDOW_CAP := Vector2i(1920, 1080)            # on-screen window never exceeds this (a 4K run is shown downscaled)
 const SIM_STEP := 1.0 / 60.0          # must match --fixed-fps 60
 const DELTA_TOLERANCE := 1e-4
@@ -97,6 +107,10 @@ var use_activity := true       # --no-activity: no robots
 var use_player := true         # --no-player: no player character
 var res_name := "1080p"
 var window_cap := WINDOW_CAP
+var variant_name := ""        # --variant Small|Medium|Large
+var output_path := ""         # --output FILE: every event is also written here, one JSON object per line
+var output_file: FileAccess
+var explicit_shape := false   # --frames / --sectors / --res given (conflicts with --variant)
 var custom_size := false      # --debug-size used
 var profile := false          # --profile: per-sector GPU / CPU timing breakdown (debug: perturbs timing slightly)
 var robot_limit := -1         # --robot-limit N: spawn only the first N baked robots (debug)
@@ -167,6 +181,20 @@ func _ready() -> void:
 	# off for everything under this node (children inherit).
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_parse_args()
+	if output_path != "" and not _open_output():
+		return
+	if variant_name != "":
+		var key := variant_name.to_lower()
+		if not VARIANTS.has(key):
+			_abort("invalid_args", "--variant must be one of: Small, Medium, Large")
+			return
+		if explicit_shape:
+			_abort("invalid_args", "--variant cannot be combined with --frames, --sectors or --res")
+			return
+		variant_name = key.capitalize()
+		res_name = VARIANTS[key]["res"]
+		frames = VARIANTS[key]["frames"]
+		sectors = VARIANTS[key]["sectors"]
 	if not RESOLUTIONS.has(res_name):
 		_abort("invalid_args", "--res must be one of: %s" % ", ".join(RESOLUTIONS.keys()))
 		return
@@ -223,11 +251,19 @@ func _parse_args() -> void:
 		var arg: String = a[i]
 		var val: String = a[i + 1] if i + 1 < a.size() else ""
 		match arg:
+			"--variant":
+				variant_name = val
+				i += 1
+			"--output":
+				output_path = val
+				i += 1
 			"--frames":
 				frames = int(val)
+				explicit_shape = true
 				i += 1
 			"--sectors":
 				sectors = int(val)
+				explicit_shape = true
 				i += 1
 			"--warmup":
 				warmup = int(val)
@@ -258,6 +294,7 @@ func _parse_args() -> void:
 				i += 1
 			"--res":
 				res_name = val.to_lower()
+				explicit_shape = true
 				i += 1
 			"--profile":
 				profile = true
@@ -278,6 +315,12 @@ func _parse_args() -> void:
 				debug_run = true
 				i += 1
 		i += 1
+	var engine_args := OS.get_cmdline_args()
+	for j in engine_args.size() - 1:
+		if engine_args[j] == "--variant" and variant_name == "":
+			variant_name = engine_args[j + 1]
+		elif engine_args[j] == "--output" and output_path == "":
+			output_path = engine_args[j + 1]
 
 
 # Overwrite the demo's user settings with a fixed benchmark profile. Never saved.
@@ -438,7 +481,7 @@ func _process(delta: float) -> void:
 			run_start_us = t_sector_us
 			frame_prev_us = t_sector_us
 			hud_win_start_us = t_sector_us
-			print(JSON.stringify(_start_info()))
+			_emit(_start_info())
 		return
 
 	# ---- Measurement ----
@@ -485,7 +528,7 @@ func _process(delta: float) -> void:
 			prof_proc = 0.0
 			prof_draws = 0.0
 			prof_n = 0
-		print(JSON.stringify(sector_ev))
+		_emit(sector_ev)
 		t_sector_us = now
 
 	# ---- Run complete ----
@@ -510,7 +553,7 @@ func _process(delta: float) -> void:
 		}
 		if debug_run:
 			done["debug_run"] = true
-		print(JSON.stringify(done))
+		_emit(done)
 		aborted = true
 		get_tree().quit()
 		return
@@ -780,6 +823,7 @@ func _start_info() -> Dictionary:
 	return {
 		"event": "start",
 		"workload": "tps",
+		"variant": variant_name,
 		"total_sectors": sectors,
 		"frames": measure_target,
 		"warmup": warmup,
@@ -815,8 +859,28 @@ func _on_frame_post_draw() -> void:
 
 func _abort(code: String, message: String) -> void:
 	aborted = true
-	print(JSON.stringify({"event": "complete", "error": code, "message": message}))
+	_emit({"event": "complete", "error": code, "message": message})
 	get_tree().quit(1)
+
+
+# One event per line on stdout and, with --output, in the file too (flushed per line, so a crash keeps what was written).
+func _emit(ev: Dictionary) -> void:
+	var line := JSON.stringify(ev)
+	print(line)
+	if output_file != null:
+		output_file.store_line(line)
+		output_file.flush()
+
+
+func _open_output() -> bool:
+	output_file = FileAccess.open(output_path, FileAccess.WRITE)
+	if output_file == null:
+		aborted = true
+		print(JSON.stringify({"event": "complete", "error": "output_unwritable",
+				"message": "Cannot write --output file '%s' (error %d)" % [output_path, FileAccess.get_open_error()]}))
+		get_tree().quit(1)
+		return false
+	return true
 
 
 # Debug: how much free space surrounds each vantage? (needs physics active)

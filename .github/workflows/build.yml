@@ -47,6 +47,9 @@ jobs:
       - name: Stamp manifest with the exe hash
         run: python scripts/stamp_manifest.py build/OCGP-TPS.exe "OCGP-TPS ${GITHUB_REF_NAME}" build/manifest.json
 
+      - name: Package tester zip
+        run: python scripts/package_testers.py build/OCGP-TPS.exe build/OCGP-TPS-tester.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: OCGP-TPS
@@ -54,10 +57,11 @@ jobs:
             build/OCGP-TPS.exe
             build/OCGP-TPS.exe.sha256
             build/manifest.json
+            build/OCGP-TPS-tester.zip
           compression-level: 0
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release create "$GITHUB_REF_NAME" build/OCGP-TPS.exe build/OCGP-TPS.exe.sha256 build/manifest.json NOTICE.md --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" build/OCGP-TPS.exe build/OCGP-TPS.exe.sha256 build/manifest.json build/OCGP-TPS-tester.zip NOTICE.md --title "$GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
