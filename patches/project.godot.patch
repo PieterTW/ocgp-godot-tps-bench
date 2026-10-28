@@ -1,21 +1,37 @@
 diff --git a/project.godot b/project.godot
-index a089692..79c128d 100644
+index a089692..c9183de 100644
 --- a/project.godot
 +++ b/project.godot
 @@ -9,6 +9,8 @@
  config_version=5
- 
+
  [application]
 +run/main_scene="res://main/main.tscn"
 +run/main_scene.ocgp="res://ocgp_bench/bench.tscn"
- 
+
  config/name="Godot Third-Person Shooter Demo"
  config/description="Godot Third Person Shooter with high quality assets and lighting"
-@@ -29,6 +31,7 @@ Settings="*res://menu/settings.gd"
+@@ -23,12 +25,15 @@ buses/default_bus_layout="uid://vtdn63d3ksc2"
+ [autoload]
+
+ Settings="*res://menu/settings.gd"
++Bootstrap.ocgp="*res://ocgp_bench/bootstrap.gd"
+
+ [display]
+
  window/size/viewport_width=1920
  window/size/viewport_height=1080
  window/hdr/request_hdr_output=true
 +window/hdr/request_hdr_output.ocgp=false
++window/vsync/vsync_mode.ocgp=0
  window/stretch/mode="canvas_items"
  window/stretch/aspect="expand"
  display_server/driver.linuxbsd="wayland"
+@@ -195,6 +200,7 @@ common/physics_interpolation=true
+ [rendering]
+
+ rendering_device/driver.windows="d3d12"
++rendering_device/driver.windows.ocgp="vulkan"
+ reflections/sky_reflections/texture_array_reflections=false
+ textures/default_filters/anisotropic_filtering_level=4
+ viewport/hdr_2d=true

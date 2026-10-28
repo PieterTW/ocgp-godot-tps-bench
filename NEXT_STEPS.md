@@ -10,11 +10,9 @@ Last updated 2026-10-20. Tick items off (or delete them) as they are settled.
   and an `about.md`. Nothing has been changed in `oc-grand-prix` so far.
 - [ ] **What OCGP captures.** `OUTPUT.md` lists every field and a suggested capture / integrity-check list. OCGP
   to confirm or adjust.
-- [ ] **Licence for the overlay code.** Suggested: all rights reserved with the OCGP header (keeps competitors from
-  casually forking the benchmark); alternative: MIT. Then add a `LICENSE` and the headers. `level_static.gd` keeps its
-  MIT notice either way, and the assets stay CC-BY 3.0 (see `NOTICE.md`).
-- [ ] **Public or private repo.** Currently private. Going public needs the licence decision above and the final
-  route / robot data.
+- [x] **Licence for the overlay code.** Decided: MIT, see `LICENSE`. `level_static.gd` keeps its MIT notice
+  either way, and the assets stay CC-BY 3.0 (see `NOTICE.md`).
+- [x] **Public or private repo.** Licence decided (MIT); route / robot data is final. Clear to go public.
 - [ ] **GameTextures.com materials.** The demo credits them for the original materials; the demo's authors release the
   finished assets under CC-BY 3.0. Not independently cleared. Optionally ask the demo's maintainers or GameTextures.
 

@@ -30,3 +30,6 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER I
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The exported executable also embeds the Godot Engine (MIT, https://godotengine.org/license/).
+
+The OCGP overlay code itself (everything in this repo outside the demo's own assets/code) is
+MIT-licensed — see LICENSE.

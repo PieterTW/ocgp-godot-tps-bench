@@ -1,16 +1,16 @@
-# OCGP "TPS" benchmark (prototype)
+# OCGP "TPS" benchmark
 
 A fixed-frame, uncapped-frame-rate benchmark built on the Godot **Third Person Shooter demo level**
 ([godotengine/tps-demo](https://github.com/godotengine/tps-demo)). A faster GPU renders the same N frames in
-less wall-clock time; the score is the **sum of sector times in ms, lower is better** — same protocol as `3dpoc.py`.
-Windows only for now.
+less wall-clock time; the score is the **sum of sector times in ms, lower is better** — same event-stream
+protocol used by other OCGP workloads. Windows only for now.
 
 This repo contains only the OCGP overlay (scripts, scene, recorded route, wrapper, manifest) and the build
 pipeline. The demo's assets are **not** stored here — `scripts/setup.sh` fetches the demo at a pinned commit.
 
 | Path | What it is |
 |---|---|
-| `ocgp_bench/` | the benchmark: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools |
+| `ocgp_bench/` | the benchmark: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools, `bootstrap.gd` (export-only autoload that lets the packaged exe be double-clicked directly) |
 | `patches/` | the two small changes made to the demo itself (`project.godot`, `level.tscn`) |
 | `scripts/` | `setup.sh` (fetch + overlay), `build.sh` (setup, import, export, hash), `stamp_manifest.py`, `package_testers.py` |
 | `tps_wrapper.py`, `manifest.json` | the OCGP workload wrapper and manifest |
@@ -47,6 +47,13 @@ godot --headless --path tps-bench --import              # one-time asset import 
 Needs **Godot 4.7.x** (the demo's `project.godot` targets 4.7). Tested with 4.7.2-stable.
 
 ## Run
+
+**Packaged exe, double-click:** just run `OCGP-TPS.exe`. It needs `--fixed-fps 60` (an engine debug flag with
+no project-setting equivalent) to score; `ocgp_bench/bootstrap.gd` (an export-only autoload) detects a bare
+launch and relaunches itself with that flag added, defaulting to the Large variant, then quits the first
+instance. The rendering driver and vsync are pinned in the exported build itself (`project.godot`'s `.ocgp`
+overrides), so they don't need a launcher. A window opens, runs, writes `ocgp_tps_result_Large.txt` next to
+the exe, and closes.
 
 Direct (what the wrapper does for you), from the development setup:
 
@@ -262,7 +269,7 @@ error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines
   independently verified.
 * Demo **code: MIT** (© 2018-2021 Juan Linietsky, Godot Engine contributors). `level_static.gd` is derived from
   `level.gd` and keeps that notice. The exe embeds the Godot Engine (MIT).
-* The licence of the OCGP overlay code itself is not decided yet.
+* The OCGP overlay code itself (`ocgp_bench/`, `tps_wrapper.py`, `scripts/`, `manifest.json`) is **MIT**, see [`LICENSE`](LICENSE).
 
 ## Status / known issues
 
@@ -271,8 +278,8 @@ runs all 10 sectors and emits the event stream; `--variant` / `--output` includi
 completes in about 30 s there. Earlier: fixed-timestep guard, headless event stream, software-Vulkan (llvmpipe) frames.
 
 **Not verified:** the GitHub Actions workflow (first run pending), timings on other GPUs, run-to-run variance, whether
-the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed sector, and
-cross-vendor behaviour.
+the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed sector,
+cross-vendor behaviour, and the double-click self-relaunch (`bootstrap.gd`) in a built exe.
 
 * **Headless import crashed** (segfault in a worker thread on `level/geometry/models/*.glb`) in a 1-core / 4 GB
   sandbox. Workaround used for testing only: disable LOD / shadow-mesh / lightmap-unwrap generation in those four

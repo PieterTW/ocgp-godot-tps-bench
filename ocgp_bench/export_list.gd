@@ -10,7 +10,7 @@ extends SceneTree
 
 const ROOTS := [
 	"res://ocgp_bench/bench.tscn", "res://ocgp_bench/bench.gd", "res://ocgp_bench/level_static.gd",
-	"res://ocgp_bench/robot_stub.gd", "res://ocgp_bench/frame_stats.gd",
+	"res://ocgp_bench/robot_stub.gd", "res://ocgp_bench/frame_stats.gd", "res://ocgp_bench/bootstrap.gd",
 	"res://level/level.tscn", "res://level/level.lmbake",                 # level.lmbake: loaded by path (lightmap GI)
 	"res://enemies/red_robot/red_robot.tscn", "res://enemies/red_robot/laser/impact_effect/impact_effect.tscn",
 	"res://player/player.tscn", "res://menu/settings.gd",                # settings.gd is the Settings autoload
