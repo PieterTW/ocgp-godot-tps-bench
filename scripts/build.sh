@@ -11,13 +11,20 @@ WORK="${1:-$HERE/tps-bench}"
 OUT="$HERE/build"
 
 rm -rf "$WORK"
+echo "==> setup: fetching demo + overlay"
 "$HERE/scripts/setup.sh" "$WORK"
 
+echo "==> importing assets (slow, several minutes on CI)"
 "$GODOT" --headless --path "$WORK" --import
+echo "==> import done"
+
 # --no-lightmap: lean build (drops ~98 MB of lightmap GI data; the benchmark then refuses --gi lightmap)
+echo "==> regenerating export_presets.cfg"
 "$GODOT" --headless --path "$WORK" --script res://ocgp_bench/export_list.gd -- --no-lightmap
 mkdir -p "$WORK/build"
+echo "==> exporting Windows build (slow, several minutes on CI)"
 "$GODOT" --headless --path "$WORK" --export-release "Windows Desktop" build/OCGP-TPS.exe
+echo "==> export done"
 
 mkdir -p "$OUT"
 # the music is not part of the benchmark; fail loudly if it ever sneaks back into the pack
