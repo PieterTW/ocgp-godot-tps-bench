@@ -35,9 +35,11 @@ jobs:
           base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}
           curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}_win64.exe.zip"
           curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          rm -rf godot
           mkdir -p godot
           unzip -q godot.zip -d godot
           mkdir -p ~/AppData/Roaming/Godot/export_templates
+          rm -rf ~/AppData/Roaming/Godot/export_templates/${GODOT_TEMPLATE_DIR}
           unzip -q templates.tpz -d tpl
           mv tpl/templates ~/AppData/Roaming/Godot/export_templates/${GODOT_TEMPLATE_DIR}
 
