@@ -21,9 +21,8 @@ For more control (choosing a variant, writing results elsewhere, diagnostics), s
 |---|---|
 | `ocgp_bench/` | the benchmark itself: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools, `bootstrap.gd` (lets the packaged exe be double-clicked directly) |
 | `patches/` | the two small changes made to the demo itself (`project.godot`, `level.tscn`) |
-| `scripts/` | `setup.sh` (fetch + overlay), `build.sh` (setup, import, export, hash), `stamp_manifest.py`, `package_testers.py` |
+| `scripts/` | `setup.sh` (fetch + overlay), `build.sh` (setup, import, export, hash), `stamp_manifest.py` |
 | `tps_wrapper.py`, `manifest.json` | a Python wrapper and manifest for driving the benchmark from another program (e.g. OCGP) |
-| `tester/` | launcher + instructions for a manual tester package |
 | `.github/workflows/build.yml` | builds the exe on a `v*` tag and publishes a release |
 | `OUTPUT.md` | what a run reports: every event, field and error code |
 | `NOTICE.md` | third-party licences / attribution |
@@ -35,14 +34,13 @@ The demo's assets are **not** stored here — `scripts/setup.sh` fetches the dem
 
 **Release build (normal use):** a tag push (`v*`) builds `OCGP-TPS.exe` in GitHub Actions and attaches it to the
 release, along with `OCGP-TPS.exe.sha256`, a `manifest.json` stamped with the exe's hash in `known_hashes`,
-`OCGP-TPS-tester.zip` and `NOTICE.md`. The committed `manifest.json` keeps `known_hashes` empty on purpose; the
-exe is not byte-reproducible, so the hash of the actually-released file is the one that counts.
+and `NOTICE.md`. The committed `manifest.json` keeps `known_hashes` empty on purpose; the exe is not
+byte-reproducible, so the hash of the actually-released file is the one that counts.
 
 **Build it yourself** (needs Godot 4.7.2 and its export templates installed):
 
 ```bash
 GODOT=/path/to/Godot_v4.7.2-stable_win64_console.exe scripts/build.sh    # -> build/OCGP-TPS.exe + .sha256
-python scripts/package_testers.py build/OCGP-TPS.exe build/OCGP-TPS-tester.zip   # optional tester package
 ```
 
 `build.sh` runs `setup.sh` into `./tps-bench` (a fresh checkout of the demo at the pinned commit with the overlay
@@ -236,10 +234,10 @@ godot --headless --path tps-bench --script res://ocgp_bench/export_list.gd -- --
 godot --headless --path tps-bench --export-release "Windows Desktop" build/OCGP-TPS.exe
 ```
 
-Run it: `OCGP-TPS.exe --rendering-driver vulkan --disable-vsync --fixed-fps 60 --flush-stdout -- --variant Medium --output result.txt`
-(no scene argument; the exe starts the benchmark itself) or through the wrapper:
-`python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`. Testers get `OCGP-TPS-tester.zip`, whose
-`run_benchmark.bat` passes the required engine flags. Only the one exe needs hashing for an allowlist.
+Run it directly (no scene argument; the exe starts the benchmark itself): `OCGP-TPS.exe -- --variant Medium
+--output result.txt` — `bootstrap.gd` adds `--fixed-fps 60`, and the rendering driver / vsync are already pinned
+in the build, so no extra engine flags are needed. Or through the wrapper:
+`python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`. Only the one exe needs hashing for an allowlist.
 
 **Lean build.** The default build leaves out the lightmap GI data (~98 MB: `level.lmbake` and its EXR atlas), which
 only `--gi lightmap` uses; that mode is refused with `gi_unavailable`. Drop `--no-lightmap` in `build.sh` for the full
