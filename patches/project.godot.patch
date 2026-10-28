@@ -1,5 +1,5 @@
 diff --git a/project.godot b/project.godot
-index a089692..c9183de 100644
+index a089692..c790b24 100644
 --- a/project.godot
 +++ b/project.godot
 @@ -9,6 +9,8 @@
@@ -27,11 +27,3 @@ index a089692..c9183de 100644
  window/stretch/mode="canvas_items"
  window/stretch/aspect="expand"
  display_server/driver.linuxbsd="wayland"
-@@ -195,6 +200,7 @@ common/physics_interpolation=true
- [rendering]
-
- rendering_device/driver.windows="d3d12"
-+rendering_device/driver.windows.ocgp="vulkan"
- reflections/sky_reflections/texture_array_reflections=false
- textures/default_filters/anisotropic_filtering_level=4
- viewport/hdr_2d=true

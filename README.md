@@ -59,11 +59,12 @@ Needs **Godot 4.7.x** (the demo's `project.godot` targets 4.7). Tested with 4.7.
 ## Run
 
 **Packaged exe, double-click:** just run `OCGP-TPS.exe`. It needs `--fixed-fps 60` (an engine debug flag with
-no project-setting equivalent) to score; `ocgp_bench/bootstrap.gd` (an export-only autoload) detects a bare
-launch and relaunches itself with that flag added, defaulting to the Large variant, then quits the first
-instance. The rendering driver and vsync are pinned in the exported build itself (`project.godot`'s `.ocgp`
-overrides), so they don't need a launcher. A window opens, runs, writes `ocgp_tps_result_Large.txt` next to
-the exe, and closes.
+no project-setting equivalent) and `--rendering-driver vulkan` (Godot's feature-tag override can't stack onto
+the platform-suffixed `rendering_device/driver.windows` key, so this one needs the flag too, unlike vsync) to
+score; `ocgp_bench/bootstrap.gd` (an export-only autoload) detects a bare launch and relaunches itself with
+both flags added, defaulting to the Large variant, then quits the first instance. Vsync is pinned in the
+exported build itself (`project.godot`'s `.ocgp` override), so it doesn't need a launcher. A window opens,
+runs, writes `ocgp_tps_result_Large.txt` next to the exe, and closes.
 
 Direct (what the wrapper does for you), from the development setup:
 
@@ -235,8 +236,8 @@ godot --headless --path tps-bench --export-release "Windows Desktop" build/OCGP-
 ```
 
 Run it directly (no scene argument; the exe starts the benchmark itself): `OCGP-TPS.exe -- --variant Medium
---output result.txt` — `bootstrap.gd` adds `--fixed-fps 60`, and the rendering driver / vsync are already pinned
-in the build, so no extra engine flags are needed. Or through the wrapper:
+--output result.txt` — `bootstrap.gd` adds `--rendering-driver vulkan --fixed-fps 60`; vsync is already pinned
+in the build, so that one doesn't need a flag. Or through the wrapper:
 `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`. Only the one exe needs hashing for an allowlist.
 
 **Lean build.** The default build leaves out the lightmap GI data (~98 MB: `level.lmbake` and its EXR atlas), which
@@ -284,13 +285,18 @@ error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines
 
 Verified (Godot 4.7.2, Windows, RTX 4090): clean build from an empty folder via `scripts/build.sh`; the exported exe
 runs all 10 sectors and emits the event stream; `--variant` / `--output` including error cases; the Small variant
-completes in about 30 s there; a double-click launch of the packaged exe (no engine flags) correctly relaunches
-itself once with `--fixed-fps 60` and the Large variant, then runs and exits cleanly with no relaunch loop. Earlier:
-fixed-timestep guard, headless event stream, software-Vulkan (llvmpipe) frames.
+completes in about 30 s there; the GitHub Actions workflow builds and publishes a release on a self-hosted runner;
+a double-click launch of the packaged exe (no engine flags) correctly relaunches itself once with
+`--rendering-driver vulkan --fixed-fps 60` and the Large variant, then runs and exits cleanly with no relaunch loop;
+a full run confirmed `rendering_driver: "vulkan"` and `vsync: 0` in the `start` event. Earlier: fixed-timestep
+guard, headless event stream, software-Vulkan (llvmpipe) frames.
 
-**Not verified:** the GitHub Actions workflow (no tagged release yet), timings on other GPUs, run-to-run variance,
-whether the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed
-sector, and cross-vendor behaviour.
+A real run first caught a bug worth noting: Godot's feature-tag override cannot stack onto a platform-suffixed
+key, so `rendering_device/driver.windows.ocgp="vulkan"` was silently ignored and every run fell back to D3D12
+until `--rendering-driver vulkan` was added to `bootstrap.gd`'s injected flags (see its header comment).
+
+**Not verified:** timings on other GPUs, run-to-run variance, whether the scene is GPU- rather than CPU-bound at
+1080p, shader-compile/pipeline-cache effects on the first timed sector, and cross-vendor behaviour.
 
 * **Headless import crashed** (segfault in a worker thread on `level/geometry/models/*.glb`) in a 1-core / 4 GB
   sandbox. Workaround used for testing only: disable LOD / shadow-mesh / lightmap-unwrap generation in those four
