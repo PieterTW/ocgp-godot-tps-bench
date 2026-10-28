@@ -13,6 +13,15 @@
 # survives OS.create_process regardless of how the engine itself re-parses these flags, so a bug
 # or quirk in that detection can never cause a second relaunch (observed: a naive "--fixed-fps" in
 # OS.get_cmdline_args() check relaunched unboundedly on export).
+#
+# --headless / --script guard: this autoload is also present (feature-tagged "ocgp") when the
+# .ocgp-tagged export is driven by build tooling, not just a competitor's double-click — e.g.
+# `--headless --script res://ocgp_bench/export_list.gd -- --no-lightmap` during scripts/build.sh.
+# Without this guard, _ready() fired there too, read "--no-lightmap" as if it were a --variant-style
+# user arg, and spawned a second, GUI, benchmark-scene process mid-build (observed in CI: a stray
+# "--rendering-driver vulkan --fixed-fps 60 -- --no-lightmap" process competing with the real
+# export step for GPU/CPU). --headless and --script only ever appear on a tooling invocation, never
+# on a real double-click or OCGP run, so skip entirely when either is present.
 extends Node
 
 const REQUIRED_FIXED_FPS := "60"
@@ -23,6 +32,8 @@ func _ready() -> void:
 	if OS.get_environment(RELAUNCH_GUARD_ENV) == "1":
 		return  # this IS the relaunched child; never relaunch again no matter what
 	var engine_args := OS.get_cmdline_args()
+	if "--headless" in engine_args or "--script" in engine_args:
+		return  # build tooling (import / export_list.gd / export-release), not a benchmark run
 	if "--fixed-fps" in engine_args and "--rendering-driver" in engine_args:
 		return  # caller already set up the engine; run in-process as normal
 
