@@ -1,30 +1,42 @@
-# OCGP "TPS" benchmark
+# TPS Benchmark
 
-A fixed-frame, uncapped-frame-rate benchmark built on the Godot **Third Person Shooter demo level**
-([godotengine/tps-demo](https://github.com/godotengine/tps-demo)). A faster GPU renders the same N frames in
-less wall-clock time; the score is the **sum of sector times in ms, lower is better** — same event-stream
-protocol used by other OCGP workloads. Windows only for now.
+A fixed-frame, uncapped-frame-rate GPU benchmark built on the Godot **Third Person Shooter demo level**
+([godotengine/tps-demo](https://github.com/godotengine/tps-demo)). A faster GPU renders the same fixed number
+of frames in less wall-clock time; the score is the **sum of sector times in milliseconds — lower is better**.
+Windows only for now.
 
-This repo contains only the OCGP overlay (scripts, scene, recorded route, wrapper, manifest) and the build
-pipeline. The demo's assets are **not** stored here — `scripts/setup.sh` fetches the demo at a pinned commit.
+Built for [OC Grand Prix](https://ocgrandprix.com) but designed to run standalone: download a release, double-click
+the exe, and it benchmarks your GPU on its own, no OCGP account or network connection needed.
+
+## Quick start
+
+Grab the latest release's `OCGP-TPS.exe` and double-click it. A window opens, runs the benchmark at the highest
+quality setting, and closes when done, writing `ocgp_tps_result_Large.txt` next to the exe with the result.
+
+For more control (choosing a variant, writing results elsewhere, diagnostics), see [Run](#run) below.
+
+## Repo layout
 
 | Path | What it is |
 |---|---|
-| `ocgp_bench/` | the benchmark: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools, `bootstrap.gd` (export-only autoload that lets the packaged exe be double-clicked directly) |
+| `ocgp_bench/` | the benchmark itself: scene + scripts, `route.ocgp` (recorded camera/player route), `activity.ocgp` (baked robots), record / bake / export tools, `bootstrap.gd` (lets the packaged exe be double-clicked directly) |
 | `patches/` | the two small changes made to the demo itself (`project.godot`, `level.tscn`) |
 | `scripts/` | `setup.sh` (fetch + overlay), `build.sh` (setup, import, export, hash), `stamp_manifest.py`, `package_testers.py` |
-| `tps_wrapper.py`, `manifest.json` | the OCGP workload wrapper and manifest |
-| `tester/` | launcher + instructions for the tester package |
+| `tps_wrapper.py`, `manifest.json` | a Python wrapper and manifest for driving the benchmark from another program (e.g. OCGP) |
+| `tester/` | launcher + instructions for a manual tester package |
 | `.github/workflows/build.yml` | builds the exe on a `v*` tag and publishes a release |
-| `OUTPUT.md` | what a run reports (events, fields, error codes) — for deciding what OCGP captures |
+| `OUTPUT.md` | what a run reports: every event, field and error code |
 | `NOTICE.md` | third-party licences / attribution |
+
+This repo contains only the overlay (scripts, scene, recorded route, wrapper, manifest) and the build pipeline.
+The demo's assets are **not** stored here — `scripts/setup.sh` fetches the demo at a pinned commit.
 
 ## Getting the benchmark
 
-**Release build (normal use):** a tag push (`v*`) builds `OCGP-TPS.exe` in GitHub Actions and attaches to the release:
-`OCGP-TPS.exe`, `OCGP-TPS.exe.sha256`, a `manifest.json` stamped with the exe's hash in `known_hashes`,
+**Release build (normal use):** a tag push (`v*`) builds `OCGP-TPS.exe` in GitHub Actions and attaches it to the
+release, along with `OCGP-TPS.exe.sha256`, a `manifest.json` stamped with the exe's hash in `known_hashes`,
 `OCGP-TPS-tester.zip` and `NOTICE.md`. The committed `manifest.json` keeps `known_hashes` empty on purpose; the
-exe is not byte-reproducible, so the hash of the released file is the one that counts.
+exe is not byte-reproducible, so the hash of the actually-released file is the one that counts.
 
 **Build it yourself** (needs Godot 4.7.2 and its export templates installed):
 
@@ -62,8 +74,8 @@ godot --path tps-bench --rendering-driver vulkan --disable-vsync --fixed-fps 60 
       res://ocgp_bench/bench.tscn -- --variant Medium --output result.txt
 ```
 
-Via the wrapper: `python tps_wrapper.py --godot-path <godot> --project-path tps-bench --variant Medium`, or with the
-packaged exe `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
+Via the Python wrapper: `python tps_wrapper.py --godot-path <godot> --project-path tps-bench --variant Medium`,
+or with the packaged exe: `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
 
 | Option (after `--`) | Meaning |
 |---|---|
@@ -75,10 +87,10 @@ packaged exe `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
 | `--res 720p\|1080p\|4k` | internal render resolution (default 1080p); the variants below use it as the difficulty axis |
 | `--gi voxel\|sdfgi\|lightmap`, `--gi-quality low\|high` | GI profile (default voxel/high) |
 | `--no-activity`, `--no-player`, `--no-path` | diagnostics: drop the robots / the character / the recorded route |
-| `--profile` | diagnostic (marks the run non-submittable): adds a `profile` object to every sector event - per-frame `frame_ms`, `gpu_ms` (GPU time of the render), `render_cpu_ms` (CPU time submitting it), `process_ms` (scripts / animation / particles) and `draw_calls`. If `gpu_ms` is well below `frame_ms`, the run is CPU-limited. |
+| `--profile` | diagnostic (marks the run `debug_run: true`, i.e. not a clean benchmark result): adds a `profile` object to every sector event - per-frame `frame_ms`, `gpu_ms` (GPU time of the render), `render_cpu_ms` (CPU time submitting it), `process_ms` (scripts / animation / particles) and `draw_calls`. If `gpu_ms` is well below `frame_ms`, the run is CPU-limited. |
 | `--robot-limit N` | diagnostic: spawn only the first N baked robots (untested) |
 | `--no-hud` | hide the live overlay (see below) |
-| *debug:* `--only-sector N`, `--probe`, `--debug-shots DIR`, `--debug-size WxH` | mark the run `debug_run:true` (not submittable) |
+| *debug:* `--only-sector N`, `--probe`, `--debug-shots DIR`, `--debug-size WxH` | mark the run `debug_run:true` |
 
 ## Variants (difficulty = resolution)
 
@@ -89,10 +101,10 @@ packaged exe `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`.
 | Large | 3840x2160 | 25 000 | 10 x 2 500 |
 
 `--res` only accepts those three values (anything else aborts with `invalid_args`) and is **not** a debug option;
-`--debug-size WxH` still exists for diagnostics and marks the run non-submittable. The 3D scene always renders at
+`--debug-size WxH` still exists for diagnostics and sets `debug_run: true`. The 3D scene always renders at
 the full internal resolution (viewport stretch mode), but the on-screen window is capped at 1920x1080, so a 4K run
 fits a 1080p monitor and is simply displayed downscaled. The `start` event reports `resolution`, `render_size`
-and `window_size`; the server should check `render_size` against the variant. Frame counts are guesses; tune them
+and `window_size`; a caller can check `render_size` against the variant. Frame counts are guesses; tune them
 once 720p / 4K timings are known across GPUs.
 
 ## "Fixed frames, variable frame rate" — how that works here
@@ -106,7 +118,6 @@ once 720p / 4K timings are known across GPUs.
   `AnimationPlayer` is stepped manually from it; forklift model choice and particle seeds are pinned; physics is off;
   the player's `settings.ini` is ignored (settings are pinned in code); TAA/MSAA/vendor upscalers are off.
   The `TIME`-driven core shader and CPU particles follow the fixed timestep.
-
 * The 3D scene renders at a **fixed 1920x1080 internal resolution** (viewport stretch mode), independent of the
   OS window rect; the check validates that internal size and the start event records the actual `window_size`.
   (First Windows run showed the window client area as 1930x1090, which broke an earlier window-size check.)
@@ -140,9 +151,9 @@ again to stop. It writes `ocgp_bench/route.ocgp` at 20 Hz: the camera (position 
 Playback: progress along the route is `frame_index / total_frames`, so every variant flies the *same* route; a
 longer variant simply flies it more slowly (more frames per metre). Sectors are consecutive segments of the route.
 Position uses Catmull-Rom interpolation (character and camera), rotation uses slerp. The warmup flies the whole route once, quickly.
-The start event reports `camera_path`, `path_samples` and `path_sha256` so the server can verify the route, and
-the wrapper adds the file to its fingerprints. **Commit the final `route.ocgp` with the benchmark; competitors must
-not be able to change it.**
+The start event reports `camera_path`, `path_samples` and `path_sha256` so a result can be checked against a known
+route, and the wrapper adds the file to its fingerprints. **Commit the final `route.ocgp` with the benchmark —
+it should not change once results are being compared across runs.**
 
 **Player character (third-person):** the recorded camera is the game's own third-person camera, and playback now
 spawns the real player model (input, physics, camera rig, UI overlays and bullets stripped) and replays the
@@ -193,7 +204,7 @@ lows  1% 230   0.1% 180   0.01% 150   min 148 fps
 `frame` is the measured-frame counter; the second ms line is the average over the last 15 frames (`worst` is the
 longest single frame in that window - spikes show up here); `avg` and `elapsed` cover the whole timed run. During
 warmup it shows `warming up n / N` (plus a glyph sample, so font setup happens before timing and does not show up as a first-frame hitch). Text size scales with the internal resolution. The overlay is part of the
-measured workload for every competitor (as in `3dpoc.py`); `--no-hud` removes it.
+measured workload for every run; `--no-hud` removes it.
 
 ## Frame-time lows
 
@@ -212,7 +223,7 @@ per frame. The overlay's own text update happens every 15 frames and is included
 They are informational; the score is still `best_ms`. A percentile definition (frame time at the 99.9th percentile)
 is a one-line change in `frame_stats.gd` if you prefer it.
 
-## Single-file build (what competitors download)
+## Single-file build (what a runner downloads)
 
 An exported build is **one executable** (~580 MB) with the engine, the level, the route and the robots inside. It
 leaves out everything else in the 1.4 GB working folder (`.git`, `.blend` sources, raw PNGs, import cache, the
@@ -228,7 +239,7 @@ godot --headless --path tps-bench --export-release "Windows Desktop" build/OCGP-
 Run it: `OCGP-TPS.exe --rendering-driver vulkan --disable-vsync --fixed-fps 60 --flush-stdout -- --variant Medium --output result.txt`
 (no scene argument; the exe starts the benchmark itself) or through the wrapper:
 `python tps_wrapper.py --exe OCGP-TPS.exe --variant Medium`. Testers get `OCGP-TPS-tester.zip`, whose
-`run_benchmark.bat` passes the required engine flags. Only the one exe needs hashing for the allowlist.
+`run_benchmark.bat` passes the required engine flags. Only the one exe needs hashing for an allowlist.
 
 **Lean build.** The default build leaves out the lightmap GI data (~98 MB: `level.lmbake` and its EXR atlas), which
 only `--gi lightmap` uses; that mode is refused with `gi_unavailable`. Drop `--no-lightmap` in `build.sh` for the full
@@ -258,7 +269,7 @@ exe instead. The route and robots are baked in at export time, so re-export afte
 Errors: `{"event":"complete","error":"<code>","message":"..."}`. Every field, the integrity checks and the full list of
 error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines are also written to the file.
 
-## Licensing — read before shipping to competitors
+## Licensing — read before redistributing
 
 * Demo **assets: CC-BY 3.0** (© 2018 Juan Linietsky, Fernando Miguel Calabró). Attribution is required wherever they
   are redistributed, the adaptation must be flagged as modified, and recipients' rights may not be restricted
@@ -269,17 +280,19 @@ error codes are in [`OUTPUT.md`](OUTPUT.md). With `--output FILE` the same lines
   independently verified.
 * Demo **code: MIT** (© 2018-2021 Juan Linietsky, Godot Engine contributors). `level_static.gd` is derived from
   `level.gd` and keeps that notice. The exe embeds the Godot Engine (MIT).
-* The OCGP overlay code itself (`ocgp_bench/`, `tps_wrapper.py`, `scripts/`, `manifest.json`) is **MIT**, see [`LICENSE`](LICENSE).
+* The overlay code itself (`ocgp_bench/`, `tps_wrapper.py`, `scripts/`, `manifest.json`) is **MIT**, see [`LICENSE`](LICENSE).
 
 ## Status / known issues
 
 Verified (Godot 4.7.2, Windows, RTX 4090): clean build from an empty folder via `scripts/build.sh`; the exported exe
 runs all 10 sectors and emits the event stream; `--variant` / `--output` including error cases; the Small variant
-completes in about 30 s there. Earlier: fixed-timestep guard, headless event stream, software-Vulkan (llvmpipe) frames.
+completes in about 30 s there; a double-click launch of the packaged exe (no engine flags) correctly relaunches
+itself once with `--fixed-fps 60` and the Large variant, then runs and exits cleanly with no relaunch loop. Earlier:
+fixed-timestep guard, headless event stream, software-Vulkan (llvmpipe) frames.
 
-**Not verified:** the GitHub Actions workflow (first run pending), timings on other GPUs, run-to-run variance, whether
-the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed sector,
-cross-vendor behaviour, and the double-click self-relaunch (`bootstrap.gd`) in a built exe.
+**Not verified:** the GitHub Actions workflow (no tagged release yet), timings on other GPUs, run-to-run variance,
+whether the scene is GPU- rather than CPU-bound at 1080p, shader-compile/pipeline-cache effects on the first timed
+sector, and cross-vendor behaviour.
 
 * **Headless import crashed** (segfault in a worker thread on `level/geometry/models/*.glb`) in a 1-core / 4 GB
   sandbox. Workaround used for testing only: disable LOD / shadow-mesh / lightmap-unwrap generation in those four

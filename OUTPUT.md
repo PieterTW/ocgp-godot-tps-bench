@@ -1,9 +1,8 @@
 # TPS benchmark output - what a run reports
 
-For OCGP to decide which data to capture. The benchmark prints **one JSON object per line** on stdout (via
-`tps_wrapper.py`, which relays only these lines), and the exe can also write the same lines to a file with
-`--output FILE` (a relative path is resolved against the exe's folder). Same protocol as `3dpoc.py`:
-`start` -> `sector` x N -> `complete`.
+The benchmark prints **one JSON object per line** on stdout (via `tps_wrapper.py`, which relays only these
+lines), and the exe can also write the same lines to a file with `--output FILE` (a relative path is resolved
+against the exe's folder): `start` -> `sector` x N -> `complete`.
 
 ```
 {"event":"start", ...}
