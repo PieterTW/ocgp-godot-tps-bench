@@ -43,23 +43,36 @@ jobs:
           unzip -q templates.tpz -d tpl
           mv tpl/templates ~/AppData/Roaming/Godot/export_templates/${GODOT_TEMPLATE_DIR}
 
+      - name: Set exe name
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "EXE_NAME=OCGP-TPS-${GITHUB_REF_NAME}.exe" >> "$GITHUB_ENV"
+          else
+            echo "EXE_NAME=OCGP-TPS.exe" >> "$GITHUB_ENV"
+          fi
+
       - name: Build
+        run: GODOT="$PWD/godot/Godot_v${GODOT_VERSION}_win64_console.exe" VERSION="${GITHUB_REF_NAME}" scripts/build.sh
+        if: startsWith(github.ref, 'refs/tags/v')
+
+      - name: Build (unversioned)
         run: GODOT="$PWD/godot/Godot_v${GODOT_VERSION}_win64_console.exe" scripts/build.sh
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Stamp manifest with the exe hash
-        run: python scripts/stamp_manifest.py build/OCGP-TPS.exe "OCGP-TPS ${GITHUB_REF_NAME}" build/manifest.json
+        run: python scripts/stamp_manifest.py "build/$EXE_NAME" "OCGP-TPS ${GITHUB_REF_NAME}" build/manifest.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: OCGP-TPS
           path: |
-            build/OCGP-TPS.exe
-            build/OCGP-TPS.exe.sha256
+            build/${{ env.EXE_NAME }}
+            build/${{ env.EXE_NAME }}.sha256
             build/manifest.json
           compression-level: 0
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release create "$GITHUB_REF_NAME" build/OCGP-TPS.exe build/OCGP-TPS.exe.sha256 build/manifest.json NOTICE.md --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "build/$EXE_NAME" "build/$EXE_NAME.sha256" build/manifest.json NOTICE.md --title "$GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

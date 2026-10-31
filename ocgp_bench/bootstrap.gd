@@ -9,6 +9,13 @@
 # added, then quit this instance. A caller that already passes --fixed-fps (OCGP, tps_wrapper.py)
 # is left alone — no extra process hop, no change to existing behaviour.
 #
+# "Already configured" detection: --rendering-driver and --fixed-fps themselves can't be used for
+# this — Godot's engine consumes both before OS.get_cmdline_args() is populated, so they never
+# appear in that list even when the caller passed them on the real command line (confirmed live:
+# tps_wrapper.py's launch, which does pass both, still failed this check and relaunched). Checking
+# for --flush-stdout instead works because the engine doesn't special-case it — it always survives
+# into get_cmdline_args(), and tps_wrapper.py injects it alongside the other two.
+#
 # Loop guard: an env var, not a CLI flag, marks "this process is the relaunched child" — it
 # survives OS.create_process regardless of how the engine itself re-parses these flags, so a bug
 # or quirk in that detection can never cause a second relaunch (observed: a naive "--fixed-fps" in
@@ -34,18 +41,22 @@ func _ready() -> void:
 	var engine_args := OS.get_cmdline_args()
 	if "--headless" in engine_args or "--script" in engine_args:
 		return  # build tooling (import / export_list.gd / export-release), not a benchmark run
-	if "--fixed-fps" in engine_args and "--rendering-driver" in engine_args:
+	if "--flush-stdout" in engine_args:
 		return  # caller already set up the engine; run in-process as normal
 
-	var relaunch_args := ["--rendering-driver", "vulkan", "--fixed-fps", REQUIRED_FIXED_FPS, "--"]
+	# Carry forward everything the caller actually passed (minus nothing) so a relaunch never
+	# silently drops an engine flag the original invocation relied on. Only prepend the flags
+	# that are missing by construction (we only got here because at least one of them is).
+	var relaunch_args := ["--rendering-driver", "vulkan", "--fixed-fps", REQUIRED_FIXED_FPS,
+		"--flush-stdout"]
+	relaunch_args.append_array(engine_args)
 	# Pass through anything after `--` (e.g. a double-click has none; an advanced user could still
 	# pass `--variant Small` by hand without the engine flags). Default to Large when nothing else
 	# was requested, so a bare double-click runs the highest-setting variant unattended.
 	var user_args := OS.get_cmdline_user_args()
 	if user_args.is_empty():
-		relaunch_args.append_array(["--variant", "Large", "--output", "ocgp_tps_result_Large.txt"])
-	else:
-		relaunch_args.append_array(user_args)
+		relaunch_args.append_array(["--", "--variant", "Large", "--output",
+			"ocgp_tps_result_Large.txt"])
 
 	OS.set_environment(RELAUNCH_GUARD_ENV, "1")
 	OS.create_process(OS.get_executable_path(), relaunch_args)
