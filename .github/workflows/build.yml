@@ -21,11 +21,14 @@ jobs:
         # 2026-10-31 resolved to the WSL stub and failed with HCS_E_SERVICE_NOT_AVAILABLE, while
         # a workflow_dispatch run on 2026-10-28 on the same runner resolved to Git Bash and
         # succeeded — nothing in this repo changed PATH between the two). Pin the real Git Bash
-        # path so this doesn't depend on PATH ordering on the host. Forward slashes and no extra
-        # flags: Actions' custom-shell templating chokes on backslashes/quoting around `{0}`
-        # ("Second path fragment must not be a drive or UNC name"), so -e/-o pipefail move into
-        # each script itself instead of living in this shell line.
-        shell: 'C:/Program Files/Git/bin/bash.exe {0}'
+        # path so this doesn't depend on PATH ordering on the host. 8.3 short path, no spaces:
+        # the runner's WhichUtil splits the custom shell string on whitespace before invoking it
+        # (confirmed in Worker_*.log: "Which2: 'C:/Program'", truncated at the space in "Program
+        # Files"), then feeds that truncated fragment to Directory.EnumeratePaths, which throws
+        # "Second path fragment must not be a drive or UNC name" — this breaks regardless of
+        # quoting, so the path itself must not contain a space. -e/-o pipefail live in each
+        # script instead of this shell line.
+        shell: 'C:/PROGRA~1/Git/bin/bash.exe {0}'
     steps:
       - uses: actions/checkout@v4
 
