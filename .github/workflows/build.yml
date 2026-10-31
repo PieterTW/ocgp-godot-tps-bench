@@ -16,7 +16,13 @@ jobs:
       contents: write
     defaults:
       run:
-        shell: bash
+        # Not just `bash` — this self-hosted Windows runner has the Microsoft Store WSL bash
+        # stub ahead of Git Bash on PATH at least some of the time (observed: a tag-push run on
+        # 2026-10-31 resolved to the WSL stub and failed with HCS_E_SERVICE_NOT_AVAILABLE, while
+        # a workflow_dispatch run on 2026-10-28 on the same runner resolved to Git Bash and
+        # succeeded — nothing in this repo changed PATH between the two). Pin the real Git Bash
+        # path so this doesn't depend on PATH ordering on the host.
+        shell: 'C:\Program Files\Git\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
     steps:
       - uses: actions/checkout@v4
 
