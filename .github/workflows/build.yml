@@ -21,8 +21,11 @@ jobs:
         # 2026-10-31 resolved to the WSL stub and failed with HCS_E_SERVICE_NOT_AVAILABLE, while
         # a workflow_dispatch run on 2026-10-28 on the same runner resolved to Git Bash and
         # succeeded — nothing in this repo changed PATH between the two). Pin the real Git Bash
-        # path so this doesn't depend on PATH ordering on the host.
-        shell: 'C:\Program Files\Git\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
+        # path so this doesn't depend on PATH ordering on the host. Forward slashes and no extra
+        # flags: Actions' custom-shell templating chokes on backslashes/quoting around `{0}`
+        # ("Second path fragment must not be a drive or UNC name"), so -e/-o pipefail move into
+        # each script itself instead of living in this shell line.
+        shell: 'C:/Program Files/Git/bin/bash.exe {0}'
     steps:
       - uses: actions/checkout@v4
 
@@ -38,6 +41,7 @@ jobs:
       - name: Download Godot and export templates
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          set -euo pipefail
           base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}
           curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}_win64.exe.zip"
           curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}_export_templates.tpz"
@@ -51,6 +55,7 @@ jobs:
 
       - name: Set exe name
         run: |
+          set -euo pipefail
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             echo "EXE_NAME=OCGP-TPS-${GITHUB_REF_NAME}.exe" >> "$GITHUB_ENV"
           else
